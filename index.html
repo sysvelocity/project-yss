@@ -1,4 +1,4 @@
-<!-- YSS_STANDALONE_APP_V1 -->
+<!-- YSS_STANDALONE_APP_V2 -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -59,26 +59,23 @@
       background: rgba(255, 255, 255, 0.68);
     }
 
-    .eyebrow {
-      margin: 0 0 6px;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .title {
-      margin: 0 0 6px;
-      font-size: 28px;
-      line-height: 1.1;
-    }
-
     .subtitle {
-      margin: 0;
+      margin: 10px 0 0;
       color: var(--muted);
       font-size: 14px;
       line-height: 1.45;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .logo {
+      display: block;
+      width: min(420px, 100%);
+      height: auto;
     }
 
     .messages {
@@ -271,9 +268,14 @@
 <body>
   <main class="shell">
     <header class="header">
-      <p class="eyebrow">YSS_STANDALONE_APP_V1</p>
-      <h1 class="title">YSS AI Coach</h1>
-      <p class="subtitle">Standalone Vercel chat app with same-origin streaming.</p>
+      <div class="brand">
+        <img
+          class="logo"
+          src="/yss-ai-assist-logo.png"
+          alt="Your Sales Story with AI Assist"
+        />
+        <p class="subtitle">AI Assist | Create your customer issues addressed talking points</p>
+      </div>
     </header>
 
     <section id="messages" class="messages">
