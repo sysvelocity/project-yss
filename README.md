@@ -1,9 +1,10 @@
 # project-yss
 
-Vercel backend for the Sysvelocity YSS AI chat.
+Standalone Vercel chat app for the Sysvelocity YSS AI coach.
 
 ## Files
 
+- `index.html`: Streaming chat UI served at `/`
 - `api/chat.js`: Streaming chat endpoint for Wix
 - `lib/systemPrompt.js`: YSS system prompt
 - `vercel.json`: Vercel function settings
@@ -50,6 +51,13 @@ Server-Sent Events stream:
 - `done`: stream complete
 - `error`: streaming error
 
+## Usage
+
+After deployment:
+
+- `https://your-project.vercel.app/` serves the chat UI
+- `https://your-project.vercel.app/api/chat` serves the streaming endpoint
+
 ## Next step
 
-Deploy this to Vercel, then update the Wix HTML chat UI to stream from the deployed `/api/chat` endpoint.
+Deploy this version to Vercel, then open the Vercel app URL directly for the full streaming chat experience.
