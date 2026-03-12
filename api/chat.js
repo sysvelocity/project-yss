@@ -1,4 +1,4 @@
-// YSS_VERCEL_CHAT_V4
+// YSS_VERCEL_CHAT_V5
 
 import OpenAI from "openai";
 import { systemPrompt } from "../lib/systemPrompt.js";
@@ -8,6 +8,7 @@ export const config = {
 };
 
 const DEFAULT_MODEL = "gpt-5.2";
+const MODERATION_MODEL = "omni-moderation-latest";
 const DEFAULT_TEMPERATURE = 0.8;
 const DEFAULT_PRESENCE_PENALTY = 0.2;
 
@@ -54,6 +55,27 @@ function buildInput(history, message) {
   return items;
 }
 
+async function moderateInput(client, message) {
+  const moderation = await client.moderations.create({
+    model: MODERATION_MODEL,
+    input: message
+  });
+
+  const result = Array.isArray(moderation.results) ? moderation.results[0] : null;
+
+  if (result?.flagged) {
+    return {
+      flagged: true,
+      categories: result.categories || {}
+    };
+  }
+
+  return {
+    flagged: false,
+    categories: {}
+  };
+}
+
 export default async function handler(request, response) {
   setCorsHeaders(response);
 
@@ -65,7 +87,8 @@ export default async function handler(request, response) {
   if (request.method === "GET") {
     response.status(200).json({
       ok: true,
-      version: "YSS_VERCEL_CHAT_V4",
+      version: "YSS_VERCEL_CHAT_V5",
+      moderation_enabled: true,
       file_search_enabled: Boolean(process.env.OPENAI_VECTOR_STORE_ID)
     });
     return;
@@ -96,6 +119,16 @@ export default async function handler(request, response) {
   const client = new OpenAI({ apiKey });
 
   try {
+    const moderation = await moderateInput(client, message);
+
+    if (moderation.flagged) {
+      response.status(400).json({
+        error: "This message cannot be processed.",
+        code: "moderation_blocked"
+      });
+      return;
+    }
+
     const stream = await client.responses.stream({
       model,
       instructions: systemPrompt,

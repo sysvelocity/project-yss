@@ -1,4 +1,4 @@
-<!-- YSS_STANDALONE_APP_V6 -->
+<!-- YSS_STANDALONE_APP_V7 -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -535,8 +535,37 @@
       });
 
       if (!response.ok || !response.body) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Request failed with status ${response.status}`);
+        let errorMessage = `Request failed with status ${response.status}`;
+
+        try {
+          const errorJson = await response.json();
+
+          if (errorJson && errorJson.code === "moderation_blocked") {
+            const moderationError = new Error(
+              "I can't help with that request. Please enter a professional sales-story prompt and try again."
+            );
+            moderationError.code = "moderation_blocked";
+            throw moderationError;
+          }
+
+          if (errorJson && typeof errorJson.error === "string" && errorJson.error.trim()) {
+            errorMessage = errorJson.error.trim();
+          }
+        } catch (error) {
+          if (error && error.code === "moderation_blocked") {
+            throw error;
+          }
+
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = errorText;
+            }
+          } catch (readError) {
+          }
+        }
+
+        throw new Error(errorMessage);
       }
 
       const reader = response.body.getReader();
@@ -604,12 +633,15 @@
         await streamChat(message, historyForRequest);
         setBusy(false, "Done");
       } catch (error) {
+        const messageText =
+          error && error.message ? error.message : "Request failed";
+
         state.history.push({
           role: "assistant",
-          content: `Server error: ${error && error.message ? error.message : "Request failed"}`
+          content: messageText
         });
         render();
-        setBusy(false, error && error.message ? error.message : "Request failed");
+        setBusy(false, messageText);
       }
     });
 
