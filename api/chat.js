@@ -1,4 +1,4 @@
-// YSS_VERCEL_CHAT_V1
+// YSS_VERCEL_CHAT_V2
 
 import OpenAI from "openai";
 import { systemPrompt } from "../lib/systemPrompt.js";
@@ -11,8 +11,8 @@ const DEFAULT_MODEL = "gpt-5.2";
 
 function setCorsHeaders(response) {
   response.setHeader("Access-Control-Allow-Origin", "*");
-  response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  response.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept");
 }
 
 function normalizeHistory(history = []) {
@@ -60,6 +60,14 @@ export default async function handler(request, response) {
     return;
   }
 
+  if (request.method === "GET") {
+    response.status(200).json({
+      ok: true,
+      version: "YSS_VERCEL_CHAT_V2"
+    });
+    return;
+  }
+
   if (request.method !== "POST") {
     response.status(405).json({ error: "Method not allowed" });
     return;
@@ -91,6 +99,9 @@ export default async function handler(request, response) {
     });
 
     response.writeHead(200, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Accept",
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive"
