@@ -1,4 +1,4 @@
-<!-- YSS_STANDALONE_APP_V22 -->
+<!-- YSS_STANDALONE_APP_V23 -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -558,9 +558,9 @@
           alt="Your Sales Story with AI Assist"
         />
         <div class="brand-copy">
-          <p class="eyebrow">Module 4</p>
-          <h1 class="header-title">Draft Your Customer Issues Addressed Talking Points</h1>
-          <p class="subtitle-copy">Sales friend, now it's time to get to work. Please provide a Bridge Line + your talking points on Customer Issues Addressed &amp; Outcomes Delivered (Video Module 4). You'll receive detailed feedback to help you refine further.</p>
+          <p id="moduleEyebrow" class="eyebrow">Module 4</p>
+          <h1 id="moduleTitle" class="header-title">Draft Your Customer Issues Addressed Talking Points</h1>
+          <p id="moduleSubtitle" class="subtitle-copy">Sales friend, now it's time to get to work. Please provide a Bridge Line + your talking points on Customer Issues Addressed &amp; Outcomes Delivered (Video Module 4). You'll receive detailed feedback to help you refine further.</p>
           <div class="header-rule"></div>
         </div>
       </div>
@@ -614,6 +614,9 @@
   <script>
     const messagesEl = document.getElementById("messages");
     const inputEl = document.getElementById("input");
+    const moduleEyebrowEl = document.getElementById("moduleEyebrow");
+    const moduleTitleEl = document.getElementById("moduleTitle");
+    const moduleSubtitleEl = document.getElementById("moduleSubtitle");
     const attachmentRow = document.getElementById("attachmentRow");
     const attachmentNameEl = document.getElementById("attachmentName");
     const removeAttachmentBtn = document.getElementById("removeAttachmentBtn");
@@ -649,7 +652,16 @@
     let state = {
       history: [],
       busy: false,
-      attachment: null
+      attachment: null,
+      module: {
+        slug: "module-4",
+        moduleNumber: "Module 4",
+        title: "Draft Your Customer Issues Addressed Talking Points",
+        subtitle: "Sales friend, now it's time to get to work. Please provide a Bridge Line + your talking points on Customer Issues Addressed & Outcomes Delivered (Video Module 4). You'll receive detailed feedback to help you refine further.",
+        emptyTitle: "Start With Your Bridge Line And Talking Points",
+        emptyCopy: "Paste your draft below, or ask for help getting started. You can also attach your bridge line and talking points from a document, as source material for a stronger first pass.",
+        inputPlaceholder: "Paste your bridge line and talking points, or ask for help getting started."
+      }
     };
 
     let apiAccessCode = sessionStorage.getItem("yss_access_code") || "";
@@ -663,6 +675,42 @@
 
     function inlineMarkdown(text) {
       return text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    }
+
+    function getRequestedModuleSlug() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("module") || "module-4";
+    }
+
+    function applyModuleConfig(moduleConfig) {
+      if (!moduleConfig) {
+        return;
+      }
+
+      state.module = moduleConfig;
+      document.title = `YSS AI Assist | ${moduleConfig.moduleNumber}`;
+      moduleEyebrowEl.textContent = moduleConfig.moduleNumber || moduleConfig.shortLabel || "Module";
+      moduleTitleEl.textContent = moduleConfig.title || "";
+      moduleSubtitleEl.textContent = moduleConfig.subtitle || "";
+      inputEl.placeholder = moduleConfig.inputPlaceholder || "";
+    }
+
+    async function loadModuleConfig() {
+      try {
+        const response = await fetch(`/api/module?module=${encodeURIComponent(getRequestedModuleSlug())}`);
+
+        if (!response.ok) {
+          return;
+        }
+
+        const result = await response.json();
+
+        if (result && result.module) {
+          applyModuleConfig(result.module);
+          render();
+        }
+      } catch (error) {
+      }
     }
 
     function renderMarkdown(text) {
@@ -786,8 +834,8 @@
       if (!state.history.length) {
         messagesEl.innerHTML = `
           <div class="empty">
-            <p class="empty-title">Start With Your Bridge Line And Talking Points</p>
-            <p class="empty-copy">Paste your draft below, or ask for help getting started. You can also attach your bridge line and talking points from a document, as source material for a stronger first pass.</p>
+            <p class="empty-title">${escapeHtml(state.module.emptyTitle || "")}</p>
+            <p class="empty-copy">${escapeHtml(state.module.emptyCopy || "")}</p>
           </div>
         `;
         return;
@@ -975,6 +1023,7 @@
         body: JSON.stringify({
           message,
           history,
+          module: state.module.slug,
           attachmentVectorStoreId: attachment?.vectorStoreId || ""
         })
       });
@@ -1123,6 +1172,7 @@
 
     renderAttachment();
     requireAccessIfNeeded();
+    loadModuleConfig();
     render();
   </script>
 </body>
