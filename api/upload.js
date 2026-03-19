@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import formidable from "formidable";
 import OpenAI, { toFile } from "openai";
+import { isAuthorized, rejectUnauthorized } from "../lib/accessControl.js";
 
 export const config = {
   runtime: "nodejs"
@@ -59,6 +60,11 @@ export default async function handler(request, response) {
 
   if (request.method !== "POST") {
     response.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  if (!isAuthorized(request)) {
+    rejectUnauthorized(response);
     return;
   }
 

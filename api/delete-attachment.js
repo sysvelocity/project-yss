@@ -1,5 +1,7 @@
 // YSS_VERCEL_DELETE_ATTACHMENT_V1
 
+import { isAuthorized, rejectUnauthorized } from "../lib/accessControl.js";
+
 export const config = {
   runtime: "nodejs"
 };
@@ -31,6 +33,11 @@ export default async function handler(request, response) {
 
   if (request.method !== "POST") {
     response.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  if (!isAuthorized(request)) {
+    rejectUnauthorized(response);
     return;
   }
 

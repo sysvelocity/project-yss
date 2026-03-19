@@ -1,6 +1,11 @@
 // YSS_VERCEL_CHAT_V6
 
 import OpenAI from "openai";
+import {
+  isAccessControlEnabled,
+  isAuthorized,
+  rejectUnauthorized
+} from "../lib/accessControl.js";
 import { systemPrompt } from "../lib/systemPrompt.js";
 
 const APP_VERSION = "v1.0.0";
@@ -11,6 +16,7 @@ export const config = {
 
 const DEFAULT_MODEL = "gpt-5.2";
 const MODERATION_MODEL = "omni-moderation-latest";
+const SCOPE_MODEL = "gpt-4.1-mini";
 const DEFAULT_TEMPERATURE = 0.8;
 const DEFAULT_PRESENCE_PENALTY = 0.2;
 
@@ -78,6 +84,38 @@ async function moderateInput(client, message) {
   };
 }
 
+async function checkScope(client, message, hasAttachment) {
+  const response = await client.responses.create({
+    model: SCOPE_MODEL,
+    input: [
+      {
+        role: "system",
+        content: [
+          {
+            type: "input_text",
+            text:
+              "You classify whether a user request is in scope for a very specific AI assist. " +
+              "Allowed topics are bridge lines, customer issues addressed, outcomes delivered, and directly related source material such as workshop notes, transcripts, rough drafts, messaging notes, or attached documents used to create or refine those deliverables. " +
+              "If the request is unrelated to those tasks, respond BLOCK. If it is related, respond ALLOW. Respond with one word only: ALLOW or BLOCK."
+          }
+        ]
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: `Attachment present: ${hasAttachment ? "yes" : "no"}\nUser request: ${message}`
+          }
+        ]
+      }
+    ]
+  });
+
+  const decision = String(response.output_text || "").trim().toUpperCase();
+  return decision === "ALLOW";
+}
+
 export default async function handler(request, response) {
   setCorsHeaders(response);
 
@@ -91,6 +129,7 @@ export default async function handler(request, response) {
       ok: true,
       app_version: APP_VERSION,
       version: "YSS_VERCEL_CHAT_V6",
+      access_control_enabled: isAccessControlEnabled(),
       moderation_enabled: true,
       file_search_enabled: Boolean(process.env.OPENAI_VECTOR_STORE_ID),
       attachment_support: true
@@ -100,6 +139,11 @@ export default async function handler(request, response) {
 
   if (request.method !== "POST") {
     response.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  if (!isAuthorized(request)) {
+    rejectUnauthorized(response);
     return;
   }
 
@@ -133,6 +177,17 @@ export default async function handler(request, response) {
       response.status(400).json({
         error: "This message cannot be processed.",
         code: "moderation_blocked"
+      });
+      return;
+    }
+
+    const inScope = await checkScope(client, message, Boolean(attachmentVectorStoreId));
+
+    if (!inScope) {
+      response.status(400).json({
+        error:
+          "This AI Assist is only for bridge lines, customer issues addressed, outcomes delivered, and directly related source material.",
+        code: "scope_blocked"
       });
       return;
     }

@@ -1,4 +1,4 @@
-<!-- YSS_STANDALONE_APP_V19 -->
+<!-- YSS_STANDALONE_APP_V20 -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -59,6 +59,80 @@
         0 30px 80px rgba(34, 50, 71, 0.18),
         0 8px 24px rgba(34, 50, 71, 0.08);
       overflow: hidden;
+    }
+
+    .access-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(34, 50, 71, 0.36);
+      backdrop-filter: blur(6px);
+      z-index: 20;
+    }
+
+    .access-overlay.visible {
+      display: flex;
+    }
+
+    .access-card {
+      width: min(420px, calc(100vw - 32px));
+      padding: 22px 22px 18px;
+      background: #ffffff;
+      border-radius: 24px;
+      box-shadow: 0 24px 60px rgba(34, 50, 71, 0.22);
+      border: 1px solid rgba(193, 202, 214, 0.9);
+    }
+
+    .access-title {
+      margin: 0 0 8px;
+      color: var(--navy);
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .access-copy {
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 14px;
+    }
+
+    .access-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid rgba(185, 196, 210, 0.95);
+      border-radius: 14px;
+      font: inherit;
+      color: var(--text);
+      outline: none;
+    }
+
+    .access-actions {
+      margin-top: 12px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .access-button {
+      appearance: none;
+      border: 0;
+      border-radius: 14px;
+      padding: 11px 16px;
+      background: #111111;
+      color: #ffffff;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .access-error {
+      min-height: 18px;
+      margin-top: 10px;
+      color: var(--red);
+      font-size: 12px;
+      font-weight: 700;
     }
 
     .header {
@@ -522,8 +596,8 @@
             <span class="tooltip">Send</span>
           </button>
           <button id="attachBtn" class="button reset" type="button" aria-label="Add attachment">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M15 7V16.25C15 18.04 13.54 19.5 11.75 19.5C9.96 19.5 8.5 18.04 8.5 16.25V8.5C8.5 7.12 9.62 6 11 6C12.38 6 13.5 7.12 13.5 8.5V15.25C13.5 16.08 12.83 16.75 12 16.75C11.17 16.75 10.5 16.08 10.5 15.25V9.25" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M15.2 6.6V16.1C15.2 18.12 13.56 19.75 11.55 19.75C9.54 19.75 7.9 18.12 7.9 16.1V8.65C7.9 7.1 9.15 5.85 10.7 5.85C12.24 5.85 13.5 7.1 13.5 8.65V15.45C13.5 16.4 12.73 17.15 11.8 17.15C10.85 17.15 10.1 16.4 10.1 15.45V9.55" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             <span class="tooltip">Add Attachment</span>
           </button>
@@ -545,6 +619,7 @@
     const attachBtn = document.getElementById("attachBtn");
     const sendBtn = document.getElementById("sendBtn");
     const statusEl = document.getElementById("status");
+    const accessOverlay = document.createElement("div");
     const fileInput = document.createElement("input");
 
     fileInput.type = "file";
@@ -552,11 +627,31 @@
     fileInput.style.display = "none";
     document.body.appendChild(fileInput);
 
+    accessOverlay.className = "access-overlay";
+    accessOverlay.innerHTML = `
+      <div class="access-card">
+        <h2 class="access-title">Enter Access Code</h2>
+        <p class="access-copy">This AI Assist is protected. Enter the session access code to continue.</p>
+        <input id="accessCodeInput" class="access-input" type="password" autocomplete="off" />
+        <div class="access-actions">
+          <button id="accessCodeSubmit" class="access-button" type="button">Continue</button>
+        </div>
+        <div id="accessCodeError" class="access-error"></div>
+      </div>
+    `;
+    document.body.appendChild(accessOverlay);
+
+    const accessCodeInput = document.getElementById("accessCodeInput");
+    const accessCodeSubmit = document.getElementById("accessCodeSubmit");
+    const accessCodeError = document.getElementById("accessCodeError");
+
     let state = {
       history: [],
       busy: false,
       attachment: null
     };
+
+    let apiAccessCode = sessionStorage.getItem("yss_access_code") || "";
 
     function escapeHtml(value) {
       return String(value)
@@ -645,6 +740,41 @@
       updateSendButtonState();
     }
 
+    function getApiHeaders(extra = {}) {
+      const headers = { ...extra };
+
+      if (apiAccessCode) {
+        headers["X-App-Access-Code"] = apiAccessCode;
+      }
+
+      return headers;
+    }
+
+    function showAccessOverlay() {
+      accessOverlay.classList.add("visible");
+      accessCodeInput.value = "";
+      accessCodeError.textContent = "";
+      setTimeout(() => accessCodeInput.focus(), 0);
+    }
+
+    function hideAccessOverlay() {
+      accessOverlay.classList.remove("visible");
+    }
+
+    async function requireAccessIfNeeded() {
+      const response = await fetch("/api/chat", { method: "GET" });
+      const health = await response.json();
+
+      if (!health.access_control_enabled) {
+        hideAccessOverlay();
+        return;
+      }
+
+      if (!apiAccessCode) {
+        showAccessOverlay();
+      }
+    }
+
     function scrollToBottom() {
       requestAnimationFrame(() => {
         messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -722,9 +852,9 @@
       try {
         await fetch("/api/delete-attachment", {
           method: "POST",
-          headers: {
+          headers: getApiHeaders({
             "Content-Type": "application/json"
-          },
+          }),
           body: JSON.stringify(payload),
           keepalive: true
         });
@@ -738,6 +868,7 @@
 
       const response = await fetch("/api/upload", {
         method: "POST",
+        headers: getApiHeaders(),
         body: formData
       });
 
@@ -820,6 +951,10 @@
         const messageText =
           error && error.message ? error.message : "Request failed";
 
+        if (error && error.code === "invalid_access_code") {
+          showAccessOverlay();
+        }
+
         state.history.push({
           role: "assistant",
           content: messageText
@@ -832,10 +967,10 @@
     async function streamChat(message, history, attachment) {
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: {
+        headers: getApiHeaders({
           "Content-Type": "application/json",
           "Accept": "text/event-stream"
-        },
+        }),
         body: JSON.stringify({
           message,
           history,
@@ -857,11 +992,25 @@
             throw moderationError;
           }
 
+          if (errorJson && errorJson.code === "scope_blocked") {
+            const scopeError = new Error(
+              "This AI Assist is only for bridge lines, customer issues addressed, outcomes delivered, and directly related source material."
+            );
+            scopeError.code = "scope_blocked";
+            throw scopeError;
+          }
+
+          if (errorJson && errorJson.code === "invalid_access_code") {
+            const accessError = new Error("Access code required or invalid.");
+            accessError.code = "invalid_access_code";
+            throw accessError;
+          }
+
           if (errorJson && typeof errorJson.error === "string" && errorJson.error.trim()) {
             errorMessage = errorJson.error.trim();
           }
         } catch (error) {
-          if (error && error.code === "moderation_blocked") {
+          if (error && (error.code === "moderation_blocked" || error.code === "scope_blocked" || error.code === "invalid_access_code")) {
             throw error;
           }
 
@@ -931,6 +1080,27 @@
       updateSendButtonState();
     });
 
+    accessCodeSubmit.addEventListener("click", () => {
+      const enteredCode = accessCodeInput.value.trim();
+
+      if (!enteredCode) {
+        accessCodeError.textContent = "Enter an access code.";
+        return;
+      }
+
+      apiAccessCode = enteredCode;
+      sessionStorage.setItem("yss_access_code", apiAccessCode);
+      accessCodeError.textContent = "";
+      hideAccessOverlay();
+      setBusy(false, "Ready");
+    });
+
+    accessCodeInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        accessCodeSubmit.click();
+      }
+    });
+
     resetInputSize();
     updateSendButtonState();
     window.addEventListener("pagehide", () => {
@@ -940,7 +1110,8 @@
 
       const payload = JSON.stringify({
         vectorStoreId: state.attachment.vectorStoreId,
-        fileId: state.attachment.fileId
+        fileId: state.attachment.fileId,
+        accessCode: apiAccessCode
       });
 
       navigator.sendBeacon(
@@ -950,6 +1121,7 @@
     });
 
     renderAttachment();
+    requireAccessIfNeeded();
     render();
   </script>
 </body>
