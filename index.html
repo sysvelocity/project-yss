@@ -1,4 +1,4 @@
-<!-- YSS_STANDALONE_APP_V8 -->
+<!-- YSS_STANDALONE_APP_V10 -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -64,9 +64,12 @@
     .shell::before {
       content: "";
       position: absolute;
-      inset: 0 auto 0 0;
+      top: 0;
+      bottom: 0;
+      left: -1px;
       width: 8px;
       background: linear-gradient(180deg, var(--red) 0%, #df4058 100%);
+      border-radius: 32px 0 0 32px;
     }
 
     .header {
@@ -224,6 +227,18 @@
       padding: 18px 24px 24px 28px;
       border-top: 1px solid var(--panel-border);
       background: var(--surface-white);
+    }
+
+    .footer {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(193, 202, 214, 0.7);
+      font-size: 12px;
+      color: #8a96a5;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
     .status {
@@ -390,7 +405,6 @@
         <div class="brand-copy">
           <p class="subtitle">AI Assist | Draft Your Customer Issues Addressed Talking Points</p>
           <p class="subtitle-copy">Sales friend, now it's time to get to work. Please provide a Bridge Line + your talking points on Customer Issues Addressed &amp; Outcomes Delivered (Video Module 4). You'll receive detailed feedback to help you refine further.</p>
-          <p class="subtitle-copy"><strong>Version:</strong> v1.0.0</p>
         </div>
       </div>
     </header>
@@ -426,6 +440,10 @@
             <span class="tooltip">Start Again</span>
           </button>
         </div>
+      </div>
+      <div class="footer">
+        <span>v1.0.0</span>
+        <span>Copyright Mike Weinberg Sales LLC</span>
       </div>
     </section>
   </main>
