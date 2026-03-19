@@ -89,7 +89,7 @@ async function moderateInput(client, message) {
   };
 }
 
-async function checkScope(client, message, hasAttachment) {
+async function checkScope(client, moduleDef, message, hasAttachment) {
   const response = await client.responses.create({
     model: SCOPE_MODEL,
     input: [
@@ -98,10 +98,7 @@ async function checkScope(client, message, hasAttachment) {
         content: [
           {
             type: "input_text",
-            text:
-              "You classify whether a user request is in scope for a very specific AI assist. " +
-              "Allowed topics are bridge lines, customer issues addressed, outcomes delivered, and directly related source material such as workshop notes, transcripts, rough drafts, messaging notes, or attached documents used to create or refine those deliverables. " +
-              "If the request is unrelated to those tasks, respond BLOCK. If it is related, respond ALLOW. Respond with one word only: ALLOW or BLOCK."
+            text: moduleDef.scopeClassifierPrompt
           }
         ]
       },
@@ -191,12 +188,16 @@ export default async function handler(request, response) {
       return;
     }
 
-    const inScope = await checkScope(client, message, Boolean(attachmentVectorStoreId));
+    const inScope = await checkScope(
+      client,
+      moduleDef,
+      message,
+      Boolean(attachmentVectorStoreId)
+    );
 
     if (!inScope) {
       response.status(400).json({
-        error:
-          "This AI Assist is only for bridge lines, customer issues addressed, outcomes delivered, and directly related source material.",
+        error: moduleDef.scopeErrorMessage,
         code: "scope_blocked"
       });
       return;

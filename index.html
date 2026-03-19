@@ -1058,7 +1058,7 @@
 
           if (errorJson && errorJson.code === "scope_blocked") {
             const scopeError = new Error(
-              "This AI Assist is only for bridge lines, customer issues addressed, outcomes delivered, and directly related source material."
+              errorJson.error || "This AI Assist is only for the current module and directly related source material."
             );
             scopeError.code = "scope_blocked";
             throw scopeError;
