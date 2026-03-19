@@ -2,6 +2,8 @@
 
 Standalone Vercel chat app for the Sysvelocity YSS AI Assist.
 
+Current release: `v1.0.0`
+
 ## Files
 
 - `index.html`: Streaming chat UI served at `/`

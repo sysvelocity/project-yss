@@ -3,6 +3,8 @@
 import OpenAI from "openai";
 import { systemPrompt } from "../lib/systemPrompt.js";
 
+const APP_VERSION = "v1.0.0";
+
 export const config = {
   runtime: "nodejs"
 };
@@ -87,6 +89,7 @@ export default async function handler(request, response) {
   if (request.method === "GET") {
     response.status(200).json({
       ok: true,
+      app_version: APP_VERSION,
       version: "YSS_VERCEL_CHAT_V5",
       moderation_enabled: true,
       file_search_enabled: Boolean(process.env.OPENAI_VECTOR_STORE_ID)
