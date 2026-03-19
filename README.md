@@ -1,4 +1,4 @@
-# project-yss
+# yssai-online-course-modules
 
 Standalone Vercel chat app for the Sysvelocity YSS AI Assist.
 
