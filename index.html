@@ -907,13 +907,26 @@
       }
 
       try {
-        await navigator.clipboard.writeText(item.content || "");
+        const button = messagesEl.querySelector(`[data-copy-index="${index}"]`);
+        const bubble = button ? button.closest(".message")?.querySelector(".bubble") : null;
+        const plainText = item.content || "";
+
+        if (bubble && navigator.clipboard && window.ClipboardItem && navigator.clipboard.write) {
+          const html = bubble.innerHTML;
+          const clipboardItem = new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([plainText], { type: "text/plain" })
+          });
+
+          await navigator.clipboard.write([clipboardItem]);
+        } else {
+          await navigator.clipboard.writeText(plainText);
+        }
 
         if (copyFeedbackTimer) {
           window.clearTimeout(copyFeedbackTimer);
         }
 
-        const button = messagesEl.querySelector(`[data-copy-index="${index}"]`);
         const tooltip = button ? button.querySelector(".tooltip") : null;
 
         if (button) {
