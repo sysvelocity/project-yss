@@ -89,7 +89,14 @@ async function moderateInput(client, message) {
   };
 }
 
-async function checkScope(client, moduleDef, message, hasAttachment) {
+function getRecentHistorySummary(history = []) {
+  return normalizeHistory(history)
+    .slice(-6)
+    .map((item, index) => `${index + 1}. ${item.role}: ${item.content}`)
+    .join("\n");
+}
+
+async function checkScope(client, moduleDef, message, history, hasAttachment) {
   const response = await client.responses.create({
     model: SCOPE_MODEL,
     input: [
@@ -107,7 +114,10 @@ async function checkScope(client, moduleDef, message, hasAttachment) {
         content: [
           {
             type: "input_text",
-            text: `Attachment present: ${hasAttachment ? "yes" : "no"}\nUser request: ${message}`
+            text:
+              `Attachment present: ${hasAttachment ? "yes" : "no"}\n` +
+              `Recent conversation:\n${getRecentHistorySummary(history) || "None"}\n\n` +
+              `Latest user request: ${message}`
           }
         ]
       }
@@ -192,6 +202,7 @@ export default async function handler(request, response) {
       client,
       moduleDef,
       message,
+      history,
       Boolean(attachmentVectorStoreId)
     );
 
