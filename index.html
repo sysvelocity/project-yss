@@ -1,4 +1,4 @@
-<!-- YSS_STANDALONE_APP_V24 -->
+<!-- YSS_STANDALONE_APP_V25 -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -364,6 +364,41 @@
       border: 0;
       border-top: 1px solid #d0d7e2;
       margin: 14px 0;
+    }
+
+    .bubble .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      margin: 0 0 14px;
+      border: 1px solid rgba(193, 202, 214, 0.7);
+      border-radius: 16px;
+      background: #ffffff;
+    }
+
+    .bubble table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .bubble th,
+    .bubble td {
+      padding: 12px 14px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid rgba(208, 215, 226, 0.8);
+    }
+
+    .bubble th {
+      color: var(--navy);
+      font-weight: 700;
+      background: rgba(245, 247, 250, 0.9);
+    }
+
+    .bubble tr:last-child td {
+      border-bottom: 0;
     }
 
     .composer-wrap {
@@ -732,6 +767,72 @@
       return text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
     }
 
+    function splitMarkdownTableRow(line) {
+      return line
+        .trim()
+        .replace(/^\|/, "")
+        .replace(/\|$/, "")
+        .split("|")
+        .map((cell) => inlineMarkdown(cell.trim()));
+    }
+
+    function isMarkdownTableSeparator(line) {
+      const cells = line
+        .trim()
+        .replace(/^\|/, "")
+        .replace(/\|$/, "")
+        .split("|")
+        .map((cell) => cell.trim());
+
+      return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+    }
+
+    function renderMarkdownTable(lines, startIndex) {
+      const headerLine = lines[startIndex] && lines[startIndex].trim();
+      const separatorLine = lines[startIndex + 1] && lines[startIndex + 1].trim();
+
+      if (!headerLine || !separatorLine || !headerLine.includes("|") || !isMarkdownTableSeparator(separatorLine)) {
+        return null;
+      }
+
+      const headers = splitMarkdownTableRow(headerLine);
+      const rows = [];
+      let cursor = startIndex + 2;
+
+      while (cursor < lines.length) {
+        const currentLine = lines[cursor].trim();
+
+        if (!currentLine || !currentLine.includes("|")) {
+          break;
+        }
+
+        rows.push(splitMarkdownTableRow(currentLine));
+        cursor += 1;
+      }
+
+      if (!rows.length) {
+        return null;
+      }
+
+      const tableHtml = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>${headers.map((cell) => `<th>${cell}</th>`).join("")}</tr>
+            </thead>
+            <tbody>
+              ${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      return {
+        html: tableHtml,
+        nextIndex: cursor
+      };
+    }
+
     function getRequestedModuleSlug() {
       const params = new URLSearchParams(window.location.search);
       const queryModule = params.get("module");
@@ -795,11 +896,21 @@
         }
       }
 
-      for (const rawLine of lines) {
+      for (let index = 0; index < lines.length; index += 1) {
+        const rawLine = lines[index];
         const line = rawLine.trim();
 
         if (!line) {
           closeList();
+          continue;
+        }
+
+        const renderedTable = renderMarkdownTable(lines, index);
+
+        if (renderedTable) {
+          closeList();
+          html += renderedTable.html;
+          index = renderedTable.nextIndex - 1;
           continue;
         }
 
