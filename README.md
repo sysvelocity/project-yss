@@ -2,7 +2,7 @@
 
 Standalone Vercel chat app for the Sysvelocity YSS AI Assist.
 
-Current release: `v1.0.0`
+Current release: `v1.1.0`
 
 This project is now structured as a shared multi-module app. Module 4 is the current live default, and future modules should be added as configuration entries rather than separate cloned apps.
 

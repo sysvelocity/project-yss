@@ -13,7 +13,7 @@ import {
   resolveModuleVectorStoreId
 } from "../lib/modules.js";
 
-const APP_VERSION = "v1.0.0";
+const APP_VERSION = "v1.1.0";
 
 export const config = {
   runtime: "nodejs"
