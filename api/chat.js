@@ -10,7 +10,8 @@ import {
   getDefaultModuleSlug,
   getModuleDefinition,
   getPublicModuleConfig,
-  resolveModuleVectorStoreId
+  resolveModuleVectorStoreId,
+  resolveModuleVectorStoreIds
 } from "../lib/modules.js";
 
 const APP_VERSION = "v1.1.0";
@@ -184,7 +185,7 @@ export default async function handler(request, response) {
       module: getPublicModuleConfig(getDefaultModuleSlug()),
       access_control_enabled: isAccessControlEnabled(),
       moderation_enabled: true,
-      file_search_enabled: Boolean(resolveModuleVectorStoreId(getDefaultModuleSlug())),
+      file_search_enabled: Boolean(resolveModuleVectorStoreIds(getDefaultModuleSlug()).length),
       attachment_support: true
     });
     return;
@@ -205,7 +206,7 @@ export default async function handler(request, response) {
   const requestedModule =
     typeof request.body?.module === "string" ? request.body.module.trim() : getDefaultModuleSlug();
   const moduleDef = getModuleDefinition(requestedModule);
-  const vectorStoreId = resolveModuleVectorStoreId(moduleDef.slug);
+  const moduleVectorStoreIds = resolveModuleVectorStoreIds(moduleDef.slug);
   const attachmentVectorStoreId =
     typeof request.body?.attachmentVectorStoreId === "string"
       ? request.body.attachmentVectorStoreId.trim()
@@ -257,7 +258,7 @@ export default async function handler(request, response) {
       return;
     }
 
-    const vectorStoreIds = [vectorStoreId, attachmentVectorStoreId].filter(Boolean);
+    const vectorStoreIds = [...moduleVectorStoreIds, attachmentVectorStoreId].filter(Boolean);
 
     const stream = await client.responses.stream({
       model,
