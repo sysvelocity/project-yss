@@ -723,23 +723,16 @@
     accessOverlay.className = "access-overlay";
     accessOverlay.innerHTML = `
       <div class="access-card">
-        <h2 id="accessTitle" class="access-title">Enter Access Code</h2>
-        <p id="accessCopy" class="access-copy">This AI Assist is protected. Enter the session access code to continue.</p>
-        <input id="accessCodeInput" class="access-input" type="password" autocomplete="off" />
-        <div id="accessActions" class="access-actions">
-          <button id="accessCodeSubmit" class="access-button" type="button">Continue</button>
-        </div>
+        <h2 id="accessTitle" class="access-title">Launch Required</h2>
+        <p id="accessCopy" class="access-copy">Please return to the course website and launch this module from there so we can verify your access.</p>
         <div id="accessCodeError" class="access-error"></div>
       </div>
     `;
     document.body.appendChild(accessOverlay);
 
-    const accessCodeInput = document.getElementById("accessCodeInput");
-    const accessCodeSubmit = document.getElementById("accessCodeSubmit");
     const accessCodeError = document.getElementById("accessCodeError");
     const accessTitle = document.getElementById("accessTitle");
     const accessCopy = document.getElementById("accessCopy");
-    const accessActions = document.getElementById("accessActions");
     let copyFeedbackTimer = null;
 
     let state = {
@@ -757,7 +750,6 @@
       }
     };
 
-    let apiAccessCode = sessionStorage.getItem("yss_access_code") || "";
     let moduleAccessToken = "";
 
     function escapeHtml(value) {
@@ -1017,10 +1009,6 @@
     function getApiHeaders(extra = {}) {
       const headers = { ...extra };
 
-      if (apiAccessCode) {
-        headers["X-App-Access-Code"] = apiAccessCode;
-      }
-
       if (moduleAccessToken) {
         headers["X-Module-Token"] = moduleAccessToken;
       }
@@ -1030,22 +1018,9 @@
       return headers;
     }
 
-    function showAccessCodeOverlay() {
-      accessTitle.textContent = "Enter Access Code";
-      accessCopy.textContent = "This AI Assist is protected. Enter the session access code to continue.";
-      accessCodeInput.style.display = "";
-      accessActions.style.display = "";
-      accessOverlay.classList.add("visible");
-      accessCodeInput.value = "";
-      accessCodeError.textContent = "";
-      setTimeout(() => accessCodeInput.focus(), 0);
-    }
-
     function showLaunchRequiredOverlay() {
       accessTitle.textContent = "Launch Required";
       accessCopy.textContent = "Please return to the course website and launch this module from there so we can verify your access.";
-      accessCodeInput.style.display = "none";
-      accessActions.style.display = "none";
       accessCodeError.textContent = "";
       accessOverlay.classList.add("visible");
     }
@@ -1061,18 +1036,13 @@
       });
       const health = await response.json();
 
-      if (!health.access_control_enabled && !health.token_access_enabled) {
+      if (!health.token_access_enabled) {
         hideAccessOverlay();
         return;
       }
 
-      if (health.token_access_enabled && !moduleAccessToken) {
+      if (!moduleAccessToken) {
         showLaunchRequiredOverlay();
-        return;
-      }
-
-      if (health.access_control_enabled && !apiAccessCode) {
-        showAccessCodeOverlay();
         return;
       }
 
@@ -1327,10 +1297,6 @@
         const messageText =
           error && error.message ? error.message : "Request failed";
 
-        if (error && error.code === "invalid_access_code") {
-          showAccessCodeOverlay();
-        }
-
         if (error && error.code === "invalid_module_token") {
           storeModuleAccessToken("");
           showLaunchRequiredOverlay();
@@ -1382,17 +1348,11 @@
             throw scopeError;
           }
 
-          if (errorJson && errorJson.code === "invalid_access_code") {
-            const accessError = new Error("Access code required or invalid.");
-            accessError.code = "invalid_access_code";
-            throw accessError;
-          }
-
           if (errorJson && typeof errorJson.error === "string" && errorJson.error.trim()) {
             errorMessage = errorJson.error.trim();
           }
         } catch (error) {
-          if (error && (error.code === "moderation_blocked" || error.code === "scope_blocked" || error.code === "invalid_access_code")) {
+          if (error && (error.code === "moderation_blocked" || error.code === "scope_blocked")) {
             throw error;
           }
 
@@ -1463,27 +1423,6 @@
       updateSendButtonState();
     });
 
-    accessCodeSubmit.addEventListener("click", () => {
-      const enteredCode = accessCodeInput.value.trim();
-
-      if (!enteredCode) {
-        accessCodeError.textContent = "Enter an access code.";
-        return;
-      }
-
-      apiAccessCode = enteredCode;
-      sessionStorage.setItem("yss_access_code", apiAccessCode);
-      accessCodeError.textContent = "";
-      hideAccessOverlay();
-      setBusy(false, "Ready");
-    });
-
-    accessCodeInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        accessCodeSubmit.click();
-      }
-    });
-
     resetInputSize();
     updateSendButtonState();
     window.addEventListener("pagehide", () => {
@@ -1494,7 +1433,6 @@
       const payload = JSON.stringify({
         vectorStoreId: state.attachment.vectorStoreId,
         fileId: state.attachment.fileId,
-        accessCode: apiAccessCode,
         moduleToken: moduleAccessToken,
         module: getRequestedModuleSlug()
       });

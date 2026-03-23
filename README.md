@@ -23,7 +23,7 @@ Set these in Vercel:
 
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`, optional, recommended `gpt-5.2`
-- `APP_ACCESS_CODE`, optional, enables access-code protection
+- `MODULE_TOKEN_SECRET`, required, must exactly match the course website signing secret
 
 Knowledge/vector store configuration:
 
@@ -94,7 +94,7 @@ Each module should be defined in `lib/modules.js` with:
 - prompt
 - vector store env var name
 
-That means new modules can be added without cloning the whole app. The shared UI, streaming backend, moderation, scope enforcement, access control, and attachment flow all stay in one codebase.
+That means new modules can be added without cloning the whole app. The shared UI, streaming backend, moderation, scope enforcement, token-based access control, and attachment flow all stay in one codebase.
 
 ## Upload the knowledge file
 

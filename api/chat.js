@@ -2,7 +2,6 @@
 
 import OpenAI from "openai";
 import {
-  isAccessControlEnabled,
   isModuleTokenEnabled,
   isAuthorized,
   rejectUnauthorized
@@ -184,7 +183,6 @@ export default async function handler(request, response) {
       version: "YSS_VERCEL_CHAT_V7",
       default_module: getDefaultModuleSlug(),
       module: getPublicModuleConfig(getDefaultModuleSlug()),
-      access_control_enabled: isAccessControlEnabled(),
       token_access_enabled: isModuleTokenEnabled(),
       moderation_enabled: true,
       file_search_enabled: Boolean(resolveModuleVectorStoreIds(getDefaultModuleSlug()).length),
