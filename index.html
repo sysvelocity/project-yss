@@ -760,7 +760,9 @@
     }
 
     function inlineMarkdown(text) {
-      return text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      return text
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/(^|[^\*])\*(?!\s)([^*]+?)\*(?!\*)/g, "$1<em>$2</em>");
     }
 
     function splitMarkdownTableRow(line) {
