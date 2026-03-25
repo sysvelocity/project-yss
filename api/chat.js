@@ -14,7 +14,7 @@ import {
   resolveModuleVectorStoreIds
 } from "../lib/modules.js";
 
-const APP_VERSION = "v1.1.0";
+const APP_VERSION = "v1.1.1";
 
 export const config = {
   runtime: "nodejs"
@@ -26,6 +26,19 @@ const SCOPE_MODEL = "gpt-4.1-mini";
 const DEFAULT_TEMPERATURE = 0.8;
 const DEFAULT_PRESENCE_PENALTY = 0.2;
 const FILE_SEARCH_MAX_RESULTS = 4;
+
+function buildInstructions(moduleDef) {
+  if (!moduleDef.knowledgeText) {
+    return moduleDef.prompt;
+  }
+
+  return [
+    moduleDef.prompt,
+    "# Full Knowledge File",
+    "Use the full knowledge source below as authoritative context for this module. Follow it closely when reviewing and refining the user's work.",
+    moduleDef.knowledgeText
+  ].join("\n\n");
+}
 
 function setCorsHeaders(response) {
   response.setHeader("Access-Control-Allow-Origin", "*");
@@ -206,7 +219,9 @@ export default async function handler(request, response) {
   const requestedModule =
     typeof request.body?.module === "string" ? request.body.module.trim() : getDefaultModuleSlug();
   const moduleDef = getModuleDefinition(requestedModule);
-  const moduleVectorStoreIds = resolveModuleVectorStoreIds(moduleDef.slug);
+  const moduleVectorStoreIds = moduleDef.knowledgeText
+    ? []
+    : resolveModuleVectorStoreIds(moduleDef.slug);
   const attachmentVectorStoreId =
     typeof request.body?.attachmentVectorStoreId === "string"
       ? request.body.attachmentVectorStoreId.trim()
@@ -262,7 +277,7 @@ export default async function handler(request, response) {
 
     const stream = await client.responses.stream({
       model,
-      instructions: moduleDef.prompt,
+      instructions: buildInstructions(moduleDef),
       input: buildInput(history, message),
       temperature: DEFAULT_TEMPERATURE,
       presence_penalty: DEFAULT_PRESENCE_PENALTY,
