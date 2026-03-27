@@ -1,16 +1,11 @@
 // YSS_VERCEL_DELETE_ATTACHMENT_V1
 
 import { isAuthorized, rejectUnauthorized } from "../lib/accessControl.js";
+import { handleCors } from "../lib/cors.js";
 
 export const config = {
   runtime: "nodejs"
 };
-
-function setCorsHeaders(response) {
-  response.setHeader("Access-Control-Allow-Origin", "*");
-  response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept");
-}
 
 async function deleteIfPresent(url, apiKey) {
   const response = await fetch(url, {
@@ -24,10 +19,7 @@ async function deleteIfPresent(url, apiKey) {
 }
 
 export default async function handler(request, response) {
-  setCorsHeaders(response);
-
-  if (request.method === "OPTIONS") {
-    response.status(204).end();
+  if (handleCors(request, response, { methods: "POST, OPTIONS" })) {
     return;
   }
 

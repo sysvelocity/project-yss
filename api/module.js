@@ -1,23 +1,15 @@
 // YSS_VERCEL_MODULE_API_V1
 
 import { isAuthorized, rejectUnauthorized } from "../lib/accessControl.js";
+import { handleCors } from "../lib/cors.js";
 import { getDefaultModuleSlug, getPublicModuleConfig } from "../lib/modules.js";
 
 export const config = {
   runtime: "nodejs"
 };
 
-function setCorsHeaders(response) {
-  response.setHeader("Access-Control-Allow-Origin", "*");
-  response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept");
-}
-
 export default async function handler(request, response) {
-  setCorsHeaders(response);
-
-  if (request.method === "OPTIONS") {
-    response.status(204).end();
+  if (handleCors(request, response, { methods: "GET, OPTIONS" })) {
     return;
   }
 

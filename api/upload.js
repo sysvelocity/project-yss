@@ -4,6 +4,7 @@ import fs from "node:fs";
 import formidable from "formidable";
 import OpenAI, { toFile } from "openai";
 import { isAuthorized, rejectUnauthorized } from "../lib/accessControl.js";
+import { handleCors } from "../lib/cors.js";
 
 export const config = {
   runtime: "nodejs"
@@ -14,12 +15,6 @@ const SUPPORTED_TYPES = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 ]);
-
-function setCorsHeaders(response) {
-  response.setHeader("Access-Control-Allow-Origin", "*");
-  response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept");
-}
 
 function parseForm(request) {
   const form = formidable({
@@ -51,10 +46,7 @@ async function removeTempFile(filepath) {
 }
 
 export default async function handler(request, response) {
-  setCorsHeaders(response);
-
-  if (request.method === "OPTIONS") {
-    response.status(204).end();
+  if (handleCors(request, response, { methods: "POST, OPTIONS" })) {
     return;
   }
 

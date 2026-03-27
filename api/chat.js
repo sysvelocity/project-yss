@@ -6,6 +6,7 @@ import {
   isAuthorized,
   rejectUnauthorized
 } from "../lib/accessControl.js";
+import { handleCors, setCorsHeaders } from "../lib/cors.js";
 import {
   getDefaultModuleSlug,
   getModuleDefinition,
@@ -38,12 +39,6 @@ function buildInstructions(moduleDef) {
     "Use the full knowledge source below as authoritative context for this module. Follow it closely when reviewing and refining the user's work.",
     moduleDef.knowledgeText
   ].join("\n\n");
-}
-
-function setCorsHeaders(response) {
-  response.setHeader("Access-Control-Allow-Origin", "*");
-  response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept");
 }
 
 function normalizeHistory(history = []) {
@@ -182,10 +177,7 @@ async function checkScope(client, moduleDef, message, history, hasAttachment) {
 }
 
 export default async function handler(request, response) {
-  setCorsHeaders(response);
-
-  if (request.method === "OPTIONS") {
-    response.status(204).end();
+  if (handleCors(request, response, { methods: "GET, POST, OPTIONS" })) {
     return;
   }
 
@@ -294,10 +286,8 @@ export default async function handler(request, response) {
         : {})
     });
 
+    setCorsHeaders(request, response, { methods: "GET, POST, OPTIONS" });
     response.writeHead(200, {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Accept",
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive"
