@@ -1305,7 +1305,12 @@
         return;
       }
 
-      setBusy(true, "Uploading attachment...");
+      setBusy(
+        true,
+        files.length > 1
+          ? "Uploading multiple attachments, please wait."
+          : "Uploading attachment, please wait."
+      );
 
       try {
         for (const file of files) {
