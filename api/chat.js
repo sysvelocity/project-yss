@@ -214,10 +214,14 @@ export default async function handler(request, response) {
   const moduleVectorStoreIds = moduleDef.knowledgeText
     ? []
     : resolveModuleVectorStoreIds(moduleDef.slug);
-  const attachmentVectorStoreId =
-    typeof request.body?.attachmentVectorStoreId === "string"
-      ? request.body.attachmentVectorStoreId.trim()
-      : "";
+  const attachmentVectorStoreIds = Array.isArray(request.body?.attachmentVectorStoreIds)
+    ? request.body.attachmentVectorStoreIds
+        .filter((value) => typeof value === "string")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    : typeof request.body?.attachmentVectorStoreId === "string"
+      ? [request.body.attachmentVectorStoreId.trim()].filter(Boolean)
+      : [];
 
   if (!apiKey) {
     response.status(500).json({ error: "Missing OPENAI_API_KEY" });
@@ -245,7 +249,7 @@ export default async function handler(request, response) {
             moduleDef,
             message,
             history,
-            Boolean(attachmentVectorStoreId)
+            attachmentVectorStoreIds.length > 0
           )
     ]);
 
@@ -265,7 +269,7 @@ export default async function handler(request, response) {
       return;
     }
 
-    const vectorStoreIds = [...moduleVectorStoreIds, attachmentVectorStoreId].filter(Boolean);
+    const vectorStoreIds = [...moduleVectorStoreIds, ...attachmentVectorStoreIds].filter(Boolean);
 
     const stream = await client.responses.stream({
       model,

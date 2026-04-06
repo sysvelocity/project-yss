@@ -712,7 +712,7 @@
       <div id="status" class="status">Ready</div>
       <div id="attachmentRow" class="attachment-row">
         <div id="attachmentList" class="attachment-list"></div>
-        <p class="attachment-note">You can add several attachments. For this step, chat still uses the most recently attached file while we finish the backend update.</p>
+        <p class="attachment-note">You can add several attachments. All current attachments are included in the chat session until you remove them.</p>
       </div>
       <div class="composer">
         <textarea
@@ -1217,8 +1217,8 @@
       sendBtn.classList.toggle("ready", hasContent && !state.busy);
     }
 
-    function getActiveAttachment() {
-      return state.attachments[state.attachments.length - 1] || null;
+    function getAttachmentVectorStoreIds() {
+      return state.attachments.map((attachment) => attachment.vectorStoreId).filter(Boolean);
     }
 
     function renderAttachment() {
@@ -1238,7 +1238,7 @@
     }
 
     async function cleanupAttachment(attachmentToRemove = null) {
-      const attachment = attachmentToRemove || getActiveAttachment();
+      const attachment = attachmentToRemove || state.attachments[state.attachments.length - 1];
 
       if (!attachment) {
         return;
@@ -1316,8 +1316,12 @@
         for (const file of files) {
           await uploadAttachment(file);
         }
-        const activeAttachment = getActiveAttachment();
-        setBusy(false, activeAttachment ? `Attached: ${activeAttachment.fileName}` : "Attachments updated.");
+        setBusy(
+          false,
+          files.length > 1
+            ? `Attached ${files.length} files.`
+            : `Attached: ${files[0].name}`
+        );
       } catch (error) {
         setBusy(false, error && error.message ? error.message : "Upload failed");
       }
@@ -1359,7 +1363,7 @@
       setBusy(true, "Streaming response...");
 
       try {
-        await streamChat(message, historyForRequest, getActiveAttachment());
+        await streamChat(message, historyForRequest, getAttachmentVectorStoreIds());
         setBusy(false, "Done");
       } catch (error) {
         const messageText =
@@ -1379,7 +1383,7 @@
       }
     });
 
-    async function streamChat(message, history, attachment) {
+    async function streamChat(message, history, attachmentVectorStoreIds) {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: getApiHeaders({
@@ -1390,7 +1394,9 @@
           message,
           history,
           module: state.module.slug,
-          attachmentVectorStoreId: attachment?.vectorStoreId || ""
+          attachmentVectorStoreIds: Array.isArray(attachmentVectorStoreIds)
+            ? attachmentVectorStoreIds
+            : []
         })
       });
 
