@@ -114,6 +114,16 @@ function isContinuationLikeMessage(message = "") {
   }
 
   const exactMatches = new Set([
+    "a",
+    "(a)",
+    "again",
+    "another",
+    "another one",
+    "another story",
+    "give me another",
+    "give me another story",
+    "start again",
+    "try again",
     "continue",
     "go on",
     "keep going",
@@ -129,6 +139,12 @@ function isContinuationLikeMessage(message = "") {
   }
 
   const partialMatches = [
+    "another outline",
+    "produce another",
+    "give me another version",
+    "give me another one",
+    "start again using the same inputs",
+    "run it again",
     "continue your response",
     "continue the response",
     "you stalled",
