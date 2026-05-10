@@ -1,8 +1,10 @@
-// YSS_VERCEL_UPLOAD_V1
+// YSS_VERCEL_UPLOAD_V2
 
 import fs from "node:fs";
 import formidable from "formidable";
 import OpenAI, { toFile } from "openai";
+import mammoth from "mammoth";
+import { PDFParse } from "pdf-parse";
 import { isAuthorized, rejectUnauthorized } from "../lib/accessControl.js";
 import { handleCors } from "../lib/cors.js";
 
@@ -15,6 +17,68 @@ const SUPPORTED_TYPES = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 ]);
+
+const MAX_INLINE_ATTACHMENT_CHARS = 120000;
+
+function normalizeExtractedText(text) {
+  return String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+}
+
+async function extractPdfText(fileBuffer) {
+  const parser = new PDFParse({ data: fileBuffer });
+
+  try {
+    const result = await parser.getText();
+    return normalizeExtractedText(result?.text || "");
+  } finally {
+    await parser.destroy();
+  }
+}
+
+async function extractAttachmentText(fileBuffer, mimetype) {
+  if (mimetype === "text/plain") {
+    return normalizeExtractedText(fileBuffer.toString("utf8"));
+  }
+
+  if (mimetype === "application/pdf") {
+    return extractPdfText(fileBuffer);
+  }
+
+  if (mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    const result = await mammoth.extractRawText({ buffer: fileBuffer });
+    return normalizeExtractedText(result?.value || "");
+  }
+
+  return "";
+}
+
+function prepareInlineText(text) {
+  const normalized = normalizeExtractedText(text);
+
+  if (!normalized) {
+    return {
+      text: "",
+      truncated: false
+    };
+  }
+
+  if (normalized.length <= MAX_INLINE_ATTACHMENT_CHARS) {
+    return {
+      text: normalized,
+      truncated: false
+    };
+  }
+
+  return {
+    text: normalized.slice(0, MAX_INLINE_ATTACHMENT_CHARS).trim(),
+    truncated: true
+  };
+}
 
 function parseForm(request) {
   const form = formidable({
@@ -88,8 +152,39 @@ export default async function handler(request, response) {
       return;
     }
 
-    const client = new OpenAI({ apiKey });
     const fileBuffer = await fs.promises.readFile(file.filepath);
+    let extracted = {
+      text: "",
+      truncated: false
+    };
+
+    try {
+      extracted = prepareInlineText(
+        await extractAttachmentText(fileBuffer, file.mimetype)
+      );
+    } catch (extractionError) {
+      extracted = {
+        text: "",
+        truncated: false
+      };
+    }
+
+    if (extracted.text) {
+      response.status(200).json({
+        ok: true,
+        version: "YSS_VERCEL_UPLOAD_V2",
+        fileName: file.originalFilename || "attachment",
+        fileId: "",
+        vectorStoreId: "",
+        extractedText: extracted.text,
+        extractedTextChars: extracted.text.length,
+        extractedTextTruncated: extracted.truncated,
+        extractionMode: "inline_text"
+      });
+      return;
+    }
+
+    const client = new OpenAI({ apiKey });
     const openAiFile = await toFile(fileBuffer, file.originalFilename || "attachment");
 
     const uploadedFile = await client.files.create({
@@ -107,10 +202,14 @@ export default async function handler(request, response) {
 
     response.status(200).json({
       ok: true,
-      version: "YSS_VERCEL_UPLOAD_V1",
+      version: "YSS_VERCEL_UPLOAD_V2",
       fileName: file.originalFilename || "attachment",
       fileId: uploadedFile.id,
-      vectorStoreId: vectorStore.id
+      vectorStoreId: vectorStore.id,
+      extractedText: "",
+      extractedTextChars: 0,
+      extractedTextTruncated: false,
+      extractionMode: "file_search"
     });
   } catch (error) {
     response.status(500).json({

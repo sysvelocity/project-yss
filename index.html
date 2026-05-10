@@ -5,7 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>YSS AI Assist</title>
-  <meta name="app-version" content="v2.0.7" />
+  <meta name="app-version" content="v2.0.8" />
   <style>
     :root {
       --bg: #6e8d9d;
@@ -901,7 +901,7 @@
       </div>
       <div class="footer">
         <div class="footer-meta">
-          <span>v2.0.7</span>
+          <span>v2.0.8</span>
           <button id="exportSessionBtn" class="footer-action" type="button" aria-label="Export session">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
@@ -1513,6 +1513,16 @@
       )];
     }
 
+    function getAttachmentTexts() {
+      return state.attachments
+        .filter((attachment) => typeof attachment.extractedText === "string" && attachment.extractedText.trim())
+        .map((attachment) => ({
+          fileName: attachment.fileName,
+          text: attachment.extractedText,
+          truncated: Boolean(attachment.extractedTextTruncated)
+        }));
+    }
+
     function renderAttachment() {
       if (state.module.attachmentsEnabled === false) {
         attachmentRow.classList.remove("visible");
@@ -1547,7 +1557,7 @@
         fileId: attachment.fileId
       };
 
-      state.attachments = state.attachments.filter((item) => item.fileId !== attachment.fileId);
+      state.attachments = state.attachments.filter((item) => item !== attachment);
       renderAttachment();
 
       try {
@@ -1586,7 +1596,10 @@
       state.attachments.push({
         fileName: result.fileName,
         fileId: result.fileId,
-        vectorStoreId: result.vectorStoreId
+        vectorStoreId: result.vectorStoreId,
+        extractedText: result.extractedText || "",
+        extractedTextTruncated: Boolean(result.extractedTextTruncated),
+        extractionMode: result.extractionMode || ""
       });
 
       renderAttachment();
@@ -1673,7 +1686,7 @@
         let didRetryLowValue = false;
 
         while (true) {
-          await streamChat(message, historyForRequest, getAttachmentVectorStoreIds());
+          await streamChat(message, historyForRequest, getAttachmentVectorStoreIds(), getAttachmentTexts());
           const lastItem = state.history[state.history.length - 1];
 
           if (
@@ -1711,7 +1724,7 @@
       }
     });
 
-    async function streamChat(message, history, attachmentVectorStoreIds) {
+    async function streamChat(message, history, attachmentVectorStoreIds, attachmentTexts) {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: getApiHeaders({
@@ -1724,6 +1737,9 @@
           module: state.module.slug,
           attachmentVectorStoreIds: Array.isArray(attachmentVectorStoreIds)
             ? attachmentVectorStoreIds
+            : [],
+          attachmentTexts: Array.isArray(attachmentTexts)
+            ? attachmentTexts
             : []
         })
       });

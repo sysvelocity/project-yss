@@ -15,7 +15,7 @@ import {
   resolveModuleVectorStoreIds
 } from "../lib/modules.js";
 
-const APP_VERSION = "v2.0.7";
+const APP_VERSION = "v2.0.8";
 
 export const config = {
   runtime: "nodejs"
@@ -26,6 +26,7 @@ const MODERATION_MODEL = "omni-moderation-latest";
 const DEFAULT_TEMPERATURE = 0.8;
 const DEFAULT_PRESENCE_PENALTY = 0.2;
 const FILE_SEARCH_MAX_RESULTS = 4;
+const MAX_INLINE_ATTACHMENT_CHARS = 160000;
 
 function buildInstructions(moduleDef) {
   if (!moduleDef.knowledgeText) {
@@ -51,8 +52,81 @@ function normalizeHistory(history = []) {
     .filter((item) => item.content);
 }
 
-function buildInput(history, message) {
+function normalizeAttachmentTexts(attachmentTexts = []) {
+  if (!Array.isArray(attachmentTexts)) {
+    return [];
+  }
+
+  let remainingChars = MAX_INLINE_ATTACHMENT_CHARS;
+  const normalized = [];
+
+  for (const item of attachmentTexts) {
+    if (!item || remainingChars <= 0) {
+      break;
+    }
+
+    const fileName = typeof item.fileName === "string" && item.fileName.trim()
+      ? item.fileName.trim()
+      : "attachment";
+    const text = typeof item.text === "string" ? item.text.trim() : "";
+
+    if (!text) {
+      continue;
+    }
+
+    const clippedText = text.slice(0, remainingChars).trim();
+
+    if (!clippedText) {
+      continue;
+    }
+
+    remainingChars -= clippedText.length;
+    normalized.push({
+      fileName,
+      text: clippedText,
+      truncated: Boolean(item.truncated) || clippedText.length < text.length
+    });
+  }
+
+  return normalized;
+}
+
+function buildAttachmentContext(attachmentTexts = []) {
+  const normalized = normalizeAttachmentTexts(attachmentTexts);
+
+  if (!normalized.length) {
+    return "";
+  }
+
+  const sections = normalized.map((attachment, index) => {
+    const truncationNote = attachment.truncated
+      ? "\n[Note: this attachment text was truncated to fit the request.]"
+      : "";
+
+    return [
+      `Attachment ${index + 1}: ${attachment.fileName}`,
+      "```text",
+      attachment.text,
+      "```",
+      truncationNote
+    ].filter(Boolean).join("\n");
+  });
+
+  return [
+    "# Attached User-Provided Working Material",
+    "Use the attachment text below as user-provided working material for this turn when it is relevant to the user's request.",
+    "This is not built-in course knowledge or internal instruction text.",
+    ...sections
+  ].join("\n\n");
+}
+
+function buildInput(history, message, attachmentTexts = []) {
   const conversation = normalizeHistory(history);
+  const attachmentContext = buildAttachmentContext(attachmentTexts);
+  const userText = [
+    String(message || "").trim(),
+    attachmentContext
+  ].filter(Boolean).join("\n\n");
 
   const items = conversation.map((item) => ({
     role: item.role,
@@ -69,7 +143,7 @@ function buildInput(history, message) {
     content: [
       {
         type: "input_text",
-        text: String(message || "").trim()
+        text: userText
       }
     ]
   });
@@ -146,6 +220,9 @@ export default async function handler(request, response) {
     : typeof request.body?.attachmentVectorStoreId === "string"
       ? [request.body.attachmentVectorStoreId.trim()].filter(Boolean)
       : [];
+  const attachmentTexts = Array.isArray(request.body?.attachmentTexts)
+    ? request.body.attachmentTexts
+    : [];
 
   if (!apiKey) {
     response.status(500).json({ error: "Missing OPENAI_API_KEY" });
@@ -178,7 +255,7 @@ export default async function handler(request, response) {
     const stream = await client.responses.stream({
       model,
       instructions: buildInstructions(moduleDef),
-      input: buildInput(history, message),
+      input: buildInput(history, message, attachmentTexts),
       temperature: DEFAULT_TEMPERATURE,
       presence_penalty: DEFAULT_PRESENCE_PENALTY,
       ...(vectorStoreIds.length
