@@ -114,7 +114,9 @@ function buildAttachmentContext(attachmentTexts = []) {
 
   return [
     "# Attached User-Provided Working Material",
-    "Use the attachment text below as user-provided working material for this turn when it is relevant to the user's request.",
+    "The following attachment text is active in this request and is available to use now.",
+    "If the user asks to review, analyze, critique, revise, or use the attached document, file, proposal, new one, or current attachment, use this text directly.",
+    "Do not ask the user to upload it again or paste it again unless there is no readable attachment text below.",
     "This is not built-in course knowledge or internal instruction text.",
     ...sections
   ].join("\n\n");

@@ -1854,6 +1854,18 @@
       updateSendButtonState();
     });
 
+    function getEmptyInputMessageForAttachment() {
+      if (state.module.slug === "module-3") {
+        return "Please review the attached sales material using the Module 3 evaluation framework.";
+      }
+
+      return "Please use the attached document as source material for this module.";
+    }
+
+    function getEmptyInputStatusMessage() {
+      return state.module.inputPlaceholder || "Enter a prompt or attach a document to get started.";
+    }
+
     exportSessionBtn.addEventListener("click", () => {
       exportSession();
     });
