@@ -2,6 +2,9 @@
   "functions": {
     "api/chat.js": {
       "maxDuration": 180
+    },
+    "api/upload.js": {
+      "maxDuration": 180
     }
   },
   "rewrites": [

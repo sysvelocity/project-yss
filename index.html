@@ -1587,7 +1587,20 @@
         body: formData
       });
 
-      const result = await response.json();
+      const responseText = await response.text();
+      let result = {};
+
+      try {
+        result = responseText ? JSON.parse(responseText) : {};
+      } catch (error) {
+        if (!response.ok) {
+          throw new Error(
+            "Attachment upload failed before the server returned details. Please try again, or paste the key text directly if the file is scanned or image-based."
+          );
+        }
+
+        throw new Error("Upload returned an unexpected response.");
+      }
 
       if (!response.ok) {
         throw new Error(result?.error || "Upload failed");

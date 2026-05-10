@@ -4,7 +4,6 @@ import fs from "node:fs";
 import formidable from "formidable";
 import OpenAI, { toFile } from "openai";
 import mammoth from "mammoth";
-import { PDFParse } from "pdf-parse";
 import { isAuthorized, rejectUnauthorized } from "../lib/accessControl.js";
 import { handleCors } from "../lib/cors.js";
 
@@ -30,6 +29,7 @@ function normalizeExtractedText(text) {
 }
 
 async function extractPdfText(fileBuffer) {
+  const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: fileBuffer });
 
   try {
