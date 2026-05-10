@@ -125,10 +125,14 @@ function buildAttachmentContext(attachmentTexts = []) {
 function buildInput(history, message, attachmentTexts = []) {
   const conversation = normalizeHistory(history);
   const attachmentContext = buildAttachmentContext(attachmentTexts);
-  const userText = [
-    String(message || "").trim(),
-    attachmentContext
-  ].filter(Boolean).join("\n\n");
+  const messageText = String(message || "").trim();
+  const userText = attachmentContext
+    ? [
+        attachmentContext,
+        "# Current User Request",
+        messageText
+      ].filter(Boolean).join("\n\n")
+    : messageText;
 
   const items = conversation.map((item) => ({
     role: item.role,

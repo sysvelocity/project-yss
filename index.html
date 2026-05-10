@@ -1681,11 +1681,15 @@
         return;
       }
 
-      const message = inputEl.value.trim();
+      let message = inputEl.value.trim();
 
       if (!message) {
-        statusEl.textContent = "Enter a bridge line and talking points, or ask for help getting started.";
-        return;
+        if (state.attachments.length) {
+          message = getEmptyInputMessageForAttachment();
+        } else {
+          statusEl.textContent = getEmptyInputStatusMessage();
+          return;
+        }
       }
 
       const historyForRequest = [...state.history];
@@ -1859,7 +1863,7 @@
         return "Please review the attached sales material using the Module 3 evaluation framework.";
       }
 
-      return "Please use the attached document as source material for this module.";
+      return `Please use the attached document as source material for ${state.module.title}.`;
     }
 
     function getEmptyInputStatusMessage() {
