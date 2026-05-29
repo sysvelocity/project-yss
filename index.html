@@ -770,6 +770,33 @@
       transform: translateY(-1px);
     }
 
+    .button.voice {
+      display: none;
+      background: var(--surface-white);
+      color: var(--navy);
+      border: 1px solid rgba(185, 196, 210, 0.95);
+    }
+
+    .button.voice.available {
+      display: inline-flex;
+    }
+
+    .button.voice.listening {
+      background: rgba(199, 31, 55, 0.1);
+      border-color: rgba(199, 31, 55, 0.38);
+      color: var(--red);
+      box-shadow: 0 8px 18px rgba(199, 31, 55, 0.12);
+    }
+
+    .button.voice:hover {
+      background: #f3f6f9;
+      transform: translateY(-1px);
+    }
+
+    .button.voice.listening:hover {
+      background: rgba(199, 31, 55, 0.16);
+    }
+
     .button:disabled {
       opacity: 0.55;
       cursor: default;
@@ -883,6 +910,15 @@
           placeholder="Paste your bridge line and talking points, or ask for help getting started."
         ></textarea>
         <div class="actions">
+          <button id="voiceBtn" class="button voice" type="button" aria-label="Start voice dictation">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M19 10v1a7 7 0 0 1-14 0v-1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M8 21h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span id="voiceTooltip" class="tooltip">Start Dictation</span>
+          </button>
           <button id="sendBtn" class="button send" type="button" aria-label="Send">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 18V6" stroke="white" stroke-width="2.7" stroke-linecap="round"/>
@@ -926,6 +962,8 @@
     const attachmentRow = document.getElementById("attachmentRow");
     const attachmentListEl = document.getElementById("attachmentList");
     const attachBtn = document.getElementById("attachBtn");
+    const voiceBtn = document.getElementById("voiceBtn");
+    const voiceTooltip = document.getElementById("voiceTooltip");
     const sendBtn = document.getElementById("sendBtn");
     const exportSessionBtn = document.getElementById("exportSessionBtn");
     const statusEl = document.getElementById("status");
@@ -967,11 +1005,17 @@
         inputPlaceholder: "Paste your bridge line and talking points, or ask for help getting started.",
         starterPrompts: [],
         attachmentsEnabled: true,
-        exportEnabled: true
+        exportEnabled: true,
+        voiceDictationEnabled: false
       }
     };
 
     let moduleAccessToken = "";
+    let speechRecognition = null;
+    let dictationActive = false;
+    let dictationBaseText = "";
+    let dictationFinalText = "";
+    const SpeechRecognitionConstructor = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
     function escapeHtml(value) {
       return String(value)
@@ -1125,6 +1169,7 @@
       attachBtn.style.display = moduleConfig.attachmentsEnabled === false ? "none" : "";
       attachmentRow.style.display = moduleConfig.attachmentsEnabled === false ? "none" : "";
       exportSessionBtn.style.display = moduleConfig.exportEnabled === false ? "none" : "";
+      updateVoiceDictationAvailability();
     }
 
     async function loadModuleConfig() {
@@ -1234,8 +1279,147 @@
       state.busy = isBusy;
       sendBtn.disabled = isBusy;
       attachBtn.disabled = isBusy;
+      updateVoiceDictationAvailability();
       statusEl.textContent = statusText;
       updateSendButtonState();
+    }
+
+    function updateVoiceDictationAvailability() {
+      const enabledForModule = state.module.voiceDictationEnabled === true;
+      voiceBtn.classList.toggle("available", enabledForModule);
+
+      if (!enabledForModule) {
+        if (dictationActive) {
+          stopVoiceDictation();
+        }
+        voiceBtn.disabled = true;
+        return;
+      }
+
+      if (!SpeechRecognitionConstructor) {
+        voiceBtn.disabled = true;
+        voiceBtn.setAttribute("aria-label", "Voice dictation is not available in this browser");
+        voiceTooltip.textContent = "Voice Unavailable";
+        return;
+      }
+
+      voiceBtn.disabled = state.busy;
+      voiceBtn.setAttribute(
+        "aria-label",
+        dictationActive ? "Stop voice dictation" : "Start voice dictation"
+      );
+      voiceTooltip.textContent = dictationActive ? "Stop Dictation" : "Start Dictation";
+    }
+
+    function buildDictationText(baseText, finalText, interimText = "") {
+      const parts = [baseText, finalText, interimText]
+        .map((part) => String(part || "").trim())
+        .filter(Boolean);
+
+      return parts.join(" ");
+    }
+
+    function applyDictationText(interimText = "") {
+      inputEl.value = buildDictationText(dictationBaseText, dictationFinalText, interimText);
+      autoResizeInput();
+      updateSendButtonState();
+    }
+
+    function setDictationActive(isActive) {
+      dictationActive = isActive;
+      voiceBtn.classList.toggle("listening", isActive);
+      updateVoiceDictationAvailability();
+      updateSendButtonState();
+    }
+
+    function createSpeechRecognition() {
+      const recognition = new SpeechRecognitionConstructor();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = navigator.language || "en-US";
+
+      recognition.addEventListener("result", (event) => {
+        let interimText = "";
+
+        for (let index = event.resultIndex; index < event.results.length; index += 1) {
+          const result = event.results[index];
+          const transcript = result[0]?.transcript || "";
+
+          if (result.isFinal) {
+            dictationFinalText = buildDictationText("", dictationFinalText, transcript);
+          } else {
+            interimText = buildDictationText("", interimText, transcript);
+          }
+        }
+
+        applyDictationText(interimText);
+      });
+
+      recognition.addEventListener("end", () => {
+        if (!dictationActive) {
+          return;
+        }
+
+        setDictationActive(false);
+        applyDictationText();
+        statusEl.textContent = inputEl.value.trim()
+          ? "Dictation ready. Review the text, then send when ready."
+          : "Dictation stopped.";
+      });
+
+      recognition.addEventListener("error", (event) => {
+        setDictationActive(false);
+        const errorName = event.error || "voice recognition error";
+        statusEl.textContent =
+          errorName === "not-allowed"
+            ? "Microphone access was blocked. Allow microphone access to use dictation."
+            : `Dictation stopped: ${errorName}.`;
+      });
+
+      return recognition;
+    }
+
+    function startVoiceDictation() {
+      if (state.busy || state.module.voiceDictationEnabled !== true) {
+        return;
+      }
+
+      if (!SpeechRecognitionConstructor) {
+        statusEl.textContent = "Voice dictation is not available in this browser.";
+        return;
+      }
+
+      dictationBaseText = inputEl.value.trim();
+      dictationFinalText = "";
+      speechRecognition = createSpeechRecognition();
+      setDictationActive(true);
+      statusEl.textContent = "Listening...";
+
+      try {
+        speechRecognition.start();
+      } catch (error) {
+        setDictationActive(false);
+        statusEl.textContent = "Could not start dictation. Please try again.";
+      }
+    }
+
+    function stopVoiceDictation() {
+      if (!dictationActive) {
+        return;
+      }
+
+      setDictationActive(false);
+      applyDictationText();
+      statusEl.textContent = inputEl.value.trim()
+        ? "Dictation ready. Review the text, then send when ready."
+        : "Dictation stopped.";
+
+      if (speechRecognition) {
+        try {
+          speechRecognition.stop();
+        } catch (error) {
+        }
+      }
     }
 
     function getApiHeaders(extra = {}) {
@@ -1473,7 +1657,7 @@
 
     function updateSendButtonState() {
       const hasContent = inputEl.value.trim().length > 0;
-      sendBtn.classList.toggle("ready", hasContent && !state.busy);
+      sendBtn.classList.toggle("ready", hasContent && !state.busy && !dictationActive);
     }
 
     function isLowValueAssistantReply(text) {
@@ -1625,6 +1809,16 @@
       fileInput.click();
     });
 
+    voiceBtn.addEventListener("click", () => {
+      if (dictationActive) {
+        stopVoiceDictation();
+        inputEl.focus();
+        return;
+      }
+
+      startVoiceDictation();
+    });
+
     fileInput.addEventListener("change", async () => {
       const files = Array.from(fileInput.files || []);
       fileInput.value = "";
@@ -1678,6 +1872,12 @@
 
     sendBtn.addEventListener("click", async () => {
       if (state.busy) {
+        return;
+      }
+
+      if (dictationActive) {
+        stopVoiceDictation();
+        inputEl.focus();
         return;
       }
 
@@ -1875,6 +2075,7 @@
     });
 
     resetInputSize();
+    updateVoiceDictationAvailability();
     updateSendButtonState();
     window.addEventListener("pagehide", () => {
       if (!state.attachments.length) {
